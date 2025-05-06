@@ -1,20 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { AuthContextType, User } from '../types';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { app } from '../firebase';
 
-// Mock user data for demo purposes
-const mockUser: User = {
-  id: '1',
-  username: 'kitsune_lover',
-  displayName: 'Kitsune Fan',
-  email: 'demo@kitsunote.com',
-  avatar: 'https://images.pexels.com/photos/1074882/pexels-photo-1074882.jpeg?auto=compress&cs=tinysrgb&w=600',
-  bio: 'Fox enthusiast and shrine explorer from Kyoto',
-  joinDate: new Date('2023-05-12'),
-  isPremium: true,
-  savedPosts: ['1', '2', '3'],
-  following: ['2', '3'],
-  followers: ['2', '4', '5']
-};
+const auth = getAuth(app);
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -32,25 +21,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate checking for stored authentication
-    const checkAuth = async () => {
-      const storedUser = localStorage.getItem('kitsunoteUser');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // Firebaseのユーザー情報をアプリケーションのユーザー型に変換
+        const userData: User = {
+          id: firebaseUser.uid,
+          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user',
+          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user',
+          email: firebaseUser.email || '',
+          avatar: firebaseUser.photoURL || 'https://images.pexels.com/photos/1074882/pexels-photo-1074882.jpeg?auto=compress&cs=tinysrgb&w=600',
+          bio: '',
+          joinDate: new Date(firebaseUser.metadata.creationTime || Date.now()),
+          isPremium: false,
+          savedPosts: [],
+          following: [],
+          followers: []
+        };
+        setUser(userData);
+      } else {
+        setUser(null);
       }
       setIsLoading(false);
-    };
-    
-    checkAuth();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      // This is a mock login - in a real app, this would call an API
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      setUser(mockUser);
-      localStorage.setItem('kitsunoteUser', JSON.stringify(mockUser));
+      await signInWithEmailAndPassword(auth, email, password);
     } finally {
       setIsLoading(false);
     }
@@ -59,19 +59,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (email: string, password: string, username: string) => {
     try {
       setIsLoading(true);
-      // This is a mock signup - in a real app, this would call an API
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      const newUser = { ...mockUser, email, username, displayName: username };
-      setUser(newUser);
-      localStorage.setItem('kitsunoteUser', JSON.stringify(newUser));
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(firebaseUser, { displayName: username });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('kitsunoteUser');
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+    }
   };
 
   return (
