@@ -1,25 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, BookOpen, Users, ArrowRight } from 'lucide-react';
+import { MapPin, BookOpen, Users, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import FoxCard from '../components/ui/FoxCard';
 import LocationCard from '../components/ui/LocationCard';
 import MythologyCard from '../components/ui/MythologyCard';
-import { mockPosts, mockLocations, mockMythology, mockMedia } from '../mock/foxData';
+import { useRecentPosts, useFeaturedLocations, useMythology } from '../hooks/useFirestore';
 
 const HomePage: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
-  const [recentPosts, setRecentPosts] = useState(mockPosts);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated } = useAuth();
+  const { posts: recentPosts, loading: postsLoading } = useRecentPosts(4);
+  const { locations: featuredLocations, loading: locationsLoading } = useFeaturedLocations(3);
+  const { mythology, loading: mythologyLoading } = useMythology(3);
 
-  useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
+  const isLoading = postsLoading || locationsLoading || mythologyLoading;
 
   return (
     <div className="pt-16">
@@ -127,7 +121,7 @@ const HomePage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-              {recentPosts.slice(0, 4).map(post => (
+              {recentPosts.map(post => (
                 <FoxCard key={post.id} post={post} />
               ))}
             </div>
@@ -146,7 +140,7 @@ const HomePage: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockLocations.slice(0, 3).map(location => (
+            {featuredLocations.map(location => (
               <LocationCard key={location.id} location={location} />
             ))}
           </div>
@@ -164,7 +158,7 @@ const HomePage: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {mockMythology.map(myth => (
+            {mythology.map(myth => (
               <MythologyCard key={myth.id} mythology={myth} />
             ))}
           </div>
