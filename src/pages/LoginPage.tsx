@@ -27,7 +27,7 @@ const LoginPage: React.FC = () => {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError('ログインに失敗しました。認証情報を確認してください。');
+      setError(`ログインに失敗しました。認証情報を確認してください。 ${err}`);
     } finally {
       setIsLoading(false);
     }

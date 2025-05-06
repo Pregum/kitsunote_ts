@@ -32,7 +32,7 @@ const CommunityPage: React.FC = () => {
     
     // Simulate sorting
     setTimeout(() => {
-      let sortedPosts = [...mockPosts];
+      const sortedPosts = [...mockPosts];
       if (sort === 'trending') {
         sortedPosts.sort((a, b) => b.likes - a.likes);
       } else {
