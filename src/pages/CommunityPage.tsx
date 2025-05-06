@@ -1,226 +1,386 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PencilLine, TrendingUp, Clock, Filter } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Database } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import FoxCard from '../components/ui/FoxCard';
-import { mockPosts } from '../mock/foxData';
-import { Post } from '../types';
+import { Post } from '../types/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const CommunityPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
-  const [sortBy, setSortBy] = useState<'recent' | 'trending'>('recent');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
-  const [newPostTag, setNewPostTag] = useState('');
   const [newPostTags, setNewPostTags] = useState<string[]>([]);
+  const [newPostImages, setNewPostImages] = useState<string[]>([]);
 
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setPosts(mockPosts);
-      setIsLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
+    fetchPosts();
   }, []);
 
-  const handleSortChange = (sort: 'recent' | 'trending') => {
-    setIsLoading(true);
-    setSortBy(sort);
-    
-    // Simulate sorting
-    setTimeout(() => {
-      const sortedPosts = [...mockPosts];
-      if (sort === 'trending') {
-        sortedPosts.sort((a, b) => b.likes - a.likes);
-      } else {
-        sortedPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      }
-      setPosts(sortedPosts);
-      setIsLoading(false);
-    }, 800);
-  };
-
-  const handleAddTag = () => {
-    if (newPostTag.trim() && !newPostTags.includes(newPostTag.trim())) {
-      setNewPostTags([...newPostTags, newPostTag.trim()]);
-      setNewPostTag('');
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setNewPostTags(newPostTags.filter(t => t !== tag));
-  };
-
-  const handleCreatePost = () => {
-    if (newPostContent.trim()) {
-      const newPost: Post = {
-        id: `temp-${Date.now()}`,
-        userId: user?.id || '1',
-        username: user?.username || 'anonymous',
-        userAvatar: user?.avatar || 'https://images.pexels.com/photos/1074882/pexels-photo-1074882.jpeg?auto=compress&cs=tinysrgb&w=600',
-        content: newPostContent,
-        images: [],
-        tags: newPostTags,
-        likes: 0,
-        comments: 0,
-        createdAt: new Date()
-      };
+  const fetchPosts = async () => {
+    try {
+      setIsLoading(true);
+      const postsRef = collection(db, 'posts');
+      const q = query(postsRef, orderBy('createdAt', 'desc'), limit(20));
+      const querySnapshot = await getDocs(q);
       
-      setPosts([newPost, ...posts]);
-      setNewPostContent('');
-      setNewPostTags([]);
-      setShowCreatePost(false);
+      const fetchedPosts = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Post[];
+      
+      setPosts(fetchedPosts);
+    } catch (err) {
+      console.error('Error fetching posts:', err);
+      setError('投稿の取得に失敗しました');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const createMockData = async () => {
+    if (!isAuthenticated || !user) {
+      setError('モックデータを作成するにはログインが必要です');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const mockPosts: Omit<Post, 'id'>[] = [
+        {
+          title: '稲荷神社巡りの旅',
+          content: '先週末、京都の伏見稲荷大社に行ってきました。千本鳥居の美しさに感動！\n\n特に朝早く訪れると、観光客も少なく、神秘的な雰囲気を味わえます。おすすめの時間帯は朝7時頃です。',
+          authorId: user.id,
+          authorName: user.displayName,
+          authorAvatar: user.avatar,
+          images: [
+            'https://images.pexels.com/photos/5169470/pexels-photo-5169470.jpeg?auto=compress&cs=tinysrgb&w=1500',
+            'https://images.pexels.com/photos/5169471/pexels-photo-5169471.jpeg?auto=compress&cs=tinysrgb&w=1500'
+          ],
+          likes: 15,
+          comments: 3,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          tags: ['稲荷神社', '京都', '観光']
+        },
+        {
+          title: '狐の伝説について',
+          content: '日本各地に伝わる狐の伝説について調べています。\n\n特に興味深いのは、東北地方に伝わる「狐の嫁入り」の伝説です。雨が降っているのに晴れている現象を「狐の嫁入り」と呼ぶのは、狐が嫁入り行列を組んで移動しているからだという説があります。',
+          authorId: user.id,
+          authorName: user.displayName,
+          authorAvatar: user.avatar,
+          images: [],
+          likes: 8,
+          comments: 2,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          tags: ['伝説', '民俗学', '狐の嫁入り']
+        },
+        {
+          title: '狐のイラスト作品',
+          content: '最近描いた狐のイラストを共有します。\n\n和風のデザインで、稲荷神社をモチーフにした作品です。',
+          authorId: user.id,
+          authorName: user.displayName,
+          authorAvatar: user.avatar,
+          images: [
+            'https://images.pexels.com/photos/5169472/pexels-photo-5169472.jpeg?auto=compress&cs=tinysrgb&w=1500'
+          ],
+          likes: 12,
+          comments: 4,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          tags: ['イラスト', 'アート', '創作']
+        }
+      ];
+
+      for (const post of mockPosts) {
+        await addDoc(collection(db, 'posts'), post);
+      }
+
+      await fetchPosts();
+      setError(null);
+    } catch (err) {
+      console.error('Error creating mock data:', err);
+      setError('モックデータの作成に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreatePost = async () => {
+    if (!isAuthenticated || !user) {
+      setError('投稿するにはログインが必要です');
+      return;
+    }
+
+    if (newPostContent.trim()) {
+      try {
+        const newPost: Omit<Post, 'id'> = {
+          title: newPostContent.slice(0, 100), // タイトルは本文の最初の100文字
+          content: newPostContent,
+          authorId: user.id,
+          authorName: user.displayName,
+          authorAvatar: user.avatar,
+          images: newPostImages,
+          likes: 0,
+          comments: 0,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          tags: newPostTags
+        };
+
+        const docRef = await addDoc(collection(db, 'posts'), newPost);
+        
+        // 新しい投稿をローカルの状態に追加
+        setPosts(prev => [{
+          ...newPost,
+          id: docRef.id,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }, ...prev]);
+
+        // フォームをリセット
+        setNewPostContent('');
+        setNewPostTags([]);
+        setNewPostImages([]);
+        setShowCreatePost(false);
+        setError(null);
+      } catch (err) {
+        console.error('Error creating post:', err);
+        setError('投稿の作成に失敗しました');
+      }
+    }
+  };
+
+  const handleTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+      e.preventDefault();
+      const newTag = e.currentTarget.value.trim();
+      if (!newPostTags.includes(newTag)) {
+        setNewPostTags([...newPostTags, newTag]);
+      }
+      e.currentTarget.value = '';
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setNewPostTags(newPostTags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // TODO: 画像アップロード機能の実装
+    console.log('Image upload:', e.target.files);
   };
 
   return (
-    <div className="pt-24 pb-16 bg-cream min-h-screen">
-      <div className="container-custom">
-        <div className="mb-8">
-          <h1 className="text-3xl font-serif font-bold text-brown-800 mb-4">コミュニティ</h1>
-          <p className="text-brown-600 max-w-3xl">
-            狐愛好家同士で情報を共有したり、体験を語り合ったりしましょう。
-            素敵な発見や体験を皆で共有してください。
-          </p>
-        </div>
-
-        {/* Create Post Button */}
-        {isAuthenticated ? (
-          <div className="mb-6">
-            <button 
-              className="btn btn-primary flex items-center"
-              onClick={() => setShowCreatePost(!showCreatePost)}
+    <div className="container-custom py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-serif font-bold text-brown-800">コミュニティ</h1>
+        <div className="flex gap-4">
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={createMockData}
+              className="btn btn-outline flex items-center gap-2"
+              title="デバッグ用：モックデータを作成"
             >
-              <PencilLine size={18} className="mr-2" />
-              投稿を作成
+              <Database size={20} />
+              モックデータ作成
             </button>
-          </div>
-        ) : (
-          <div className="bg-orange-50 p-4 rounded-lg mb-6">
-            <p className="text-brown-700 mb-2">コミュニティに参加するにはログインが必要です</p>
-            <div className="flex gap-2">
-              <Link to="/login" className="btn btn-outline text-sm">ログイン</Link>
-              <Link to="/signup" className="btn btn-primary text-sm">新規登録</Link>
-            </div>
-          </div>
-        )}
+          )}
+          {isAuthenticated && (
+            <button
+              onClick={() => setShowCreatePost(true)}
+              className="btn btn-primary flex items-center gap-2"
+            >
+              <Plus size={20} />
+              新規投稿
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* Create Post Form */}
-        {showCreatePost && (
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6 animate-fadeIn">
-            <h3 className="font-medium text-brown-800 mb-3">新しい投稿を作成</h3>
-            
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {showCreatePost && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">新規投稿</h2>
+              <button
+                onClick={() => setShowCreatePost(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
             <textarea
-              className="input h-32 mb-3"
-              placeholder="あなたの体験や発見を共有しましょう..."
               value={newPostContent}
-              onChange={e => setNewPostContent(e.target.value)}
-            ></textarea>
-            
-            {/* Tags Input */}
+              onChange={(e) => setNewPostContent(e.target.value)}
+              placeholder="投稿内容を入力してください..."
+              className="w-full h-32 p-2 border rounded-lg mb-4"
+            />
+
             <div className="mb-4">
-              <label className="block text-sm text-brown-600 mb-1">タグ</label>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <input
+                type="text"
+                placeholder="タグを入力してEnterキーを押してください"
+                onKeyDown={handleTagInput}
+                className="w-full p-2 border rounded-lg"
+              />
+              <div className="flex flex-wrap gap-2 mt-2">
                 {newPostTags.map(tag => (
-                  <div 
+                  <span
                     key={tag}
-                    className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm flex items-center"
+                    className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm flex items-center gap-1"
                   >
-                    #{tag}
-                    <button 
-                      className="ml-1 focus:outline-none"
-                      onClick={() => handleRemoveTag(tag)}
+                    {tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      className="text-orange-600 hover:text-orange-800"
                     >
-                      ×
+                      <X size={14} />
                     </button>
-                  </div>
+                  </span>
                 ))}
               </div>
-              <div className="flex">
-                <input
-                  type="text"
-                  className="input rounded-r-none"
-                  placeholder="タグを追加 (Enter で追加)"
-                  value={newPostTag}
-                  onChange={e => setNewPostTag(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                />
-                <button 
-                  className="bg-orange-500 text-white px-3 rounded-r-md hover:bg-orange-600"
-                  onClick={handleAddTag}
-                >
-                  追加
-                </button>
-              </div>
             </div>
-            
-            <div className="flex justify-end gap-2">
-              <button 
-                className="btn btn-outline"
+
+            <div className="mb-4">
+              <label className="btn btn-outline flex items-center gap-2 cursor-pointer">
+                <ImageIcon size={20} />
+                画像を追加
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-4">
+              <button
                 onClick={() => setShowCreatePost(false)}
+                className="btn btn-outline"
               >
                 キャンセル
               </button>
-              <button 
-                className="btn btn-primary"
+              <button
                 onClick={handleCreatePost}
+                className="btn btn-primary"
                 disabled={!newPostContent.trim()}
               >
-                投稿
+                投稿する
               </button>
             </div>
           </div>
-        )}
-
-        {/* Sort Options */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex space-x-4">
-            <button
-              className={`flex items-center ${
-                sortBy === 'recent' 
-                  ? 'text-orange-500 font-medium' 
-                  : 'text-brown-600 hover:text-brown-800'
-              }`}
-              onClick={() => handleSortChange('recent')}
-            >
-              <Clock size={18} className="mr-1" />
-              最新
-            </button>
-            <button
-              className={`flex items-center ${
-                sortBy === 'trending' 
-                  ? 'text-orange-500 font-medium' 
-                  : 'text-brown-600 hover:text-brown-800'
-              }`}
-              onClick={() => handleSortChange('trending')}
-            >
-              <TrendingUp size={18} className="mr-1" />
-              人気
-            </button>
-          </div>
-          
-          <button className="text-brown-600 hover:text-brown-800 flex items-center">
-            <Filter size={18} className="mr-1" />
-            フィルター
-          </button>
         </div>
+      )}
 
-        {/* Posts */}
-        {isLoading ? (
-          <div className="flex justify-center py-16">
-            <div className="fox-loading"></div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {posts.map(post => (
-              <FoxCard key={post.id} post={post} />
-            ))}
-          </div>
-        )}
-      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-16">
+          <div className="fox-loading"></div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {posts.map(post => (
+            <div key={post.id} className="card p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <img
+                  src={post.authorAvatar}
+                  alt={post.authorName}
+                  className="w-12 h-12 rounded-full"
+                />
+                <div>
+                  <Link
+                    to={`/profile/${post.authorId}`}
+                    className="font-medium text-brown-800 hover:text-orange-600"
+                  >
+                    {post.authorName}
+                  </Link>
+                  <p className="text-sm text-gray-500">
+                    {post.createdAt instanceof Date
+                      ? post.createdAt.toLocaleDateString('ja-JP')
+                      : new Date(post.createdAt.seconds * 1000).toLocaleDateString('ja-JP')}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-brown-700 mb-4 whitespace-pre-wrap">{post.content}</p>
+
+              {post.images && post.images.length > 0 && (
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  {post.images.map((image, index) => (
+                    <img
+                      key={index}
+                      src={image}
+                      alt={`投稿画像 ${index + 1}`}
+                      className="rounded-lg w-full h-48 object-cover"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {post.tags && post.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {post.tags.map(tag => (
+                    <span
+                      key={tag}
+                      className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-6 text-gray-500">
+                <button className="flex items-center gap-2 hover:text-orange-600">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
+                  </svg>
+                  {post.likes}
+                </button>
+                <button className="flex items-center gap-2 hover:text-orange-600">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  {post.comments}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
