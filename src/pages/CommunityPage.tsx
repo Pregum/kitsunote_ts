@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Post } from '../types/firestore';
 import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const CommunityPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -15,6 +16,8 @@ const CommunityPage: React.FC = () => {
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostTags, setNewPostTags] = useState<string[]>([]);
   const [newPostImages, setNewPostImages] = useState<string[]>([]);
+
+  const storage = getStorage();
 
   useEffect(() => {
     fetchPosts();
@@ -170,9 +173,24 @@ const CommunityPage: React.FC = () => {
     setNewPostTags(newPostTags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // TODO: 画像アップロード機能の実装
-    console.log('Image upload:', e.target.files);
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !user) return;
+
+    const uploadPromises = Array.from(files).map(async (file) => {
+      const storageRef = ref(storage, `post_images/${user.id}_${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      return url;
+    });
+
+    try {
+      const urls = await Promise.all(uploadPromises);
+      setNewPostImages(prev => [...prev, ...urls]);
+    } catch (err) {
+      console.error('画像アップロードに失敗しました', err);
+      // 必要ならエラー表示
+    }
   };
 
   return (
