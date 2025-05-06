@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Post, Location, Mythology } from '../types/firestore';
 
@@ -94,4 +94,43 @@ export const useMythology = (limit: number = 3) => {
   }, [limit]);
 
   return { mythology, loading, error };
+};
+
+export interface Media {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  tags: string[];
+  images?: string[];
+  createdAt: any;
+  updatedAt: any;
+}
+
+export const useMedia = (limitNum: number = 12) => {
+  const [media, setMedia] = useState<Media[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const fetchMedia = async () => {
+      try {
+        const mediaRef = collection(db, 'media');
+        const q = query(mediaRef, orderBy('createdAt', 'desc'), limit(limitNum));
+        const querySnapshot = await getDocs(q);
+        const fetchedMedia = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Media[];
+        setMedia(fetchedMedia);
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedia();
+  }, [limitNum]);
+
+  return { media, loading, error };
 }; 

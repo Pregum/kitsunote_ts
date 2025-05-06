@@ -40,8 +40,8 @@ const MythologyCard: React.FC<MythologyCardProps> = ({ mythology }) => {
 
         <div className="mt-auto pt-3 border-t border-brown-100 flex justify-between items-center">
           <div className="flex items-center text-brown-600 text-sm">
-            <BookOpen size={16} className="mr-1 text-orange-500" />
-            <span>{mythology.sources.length}の出典</span>
+            {/* <BookOpen size={16} className="mr-1 text-orange-500" /> */}
+            {/* <span>{mythology?.sources?.length || 0}の出典</span> */}
           </div>
           <button className="btn btn-outline text-sm">詳細を読む</button>
         </div>

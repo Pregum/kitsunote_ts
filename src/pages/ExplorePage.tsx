@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, Database } from 'lucide-react';
 import MythologyCard from '../components/ui/MythologyCard';
 import MediaCard from '../components/ui/MediaCard';
-import { mockMythology, mockMedia } from '../mock/foxData';
+import { useMythology, useMedia } from '../hooks/useFirestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { Mythology } from '../types/Mythology';
 
 const ExplorePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'mythology' | 'media'>('mythology');
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const { user, isAuthenticated } = useAuth();
 
   const mythologyFilters = ['日本', '中国', '西洋', '平安時代', '江戸時代', '現代'];
   const mediaFilters = ['アニメ', '漫画', 'ゲーム', '書籍', '映画', 'アート'];
+
+  const { mythology } = useMythology(30);
+  const { media } = useMedia(30);
 
   const toggleFilter = (filter: string) => {
     if (filters.includes(filter)) {
@@ -28,25 +36,22 @@ const ExplorePage: React.FC = () => {
 
   const getFilteredContent = () => {
     if (activeTab === 'mythology') {
-      return mockMythology.filter(myth => {
+      return mythology.filter(myth => {
         const matchesSearch = searchQuery === '' || 
           myth.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          myth.description.toLowerCase().includes(searchQuery.toLowerCase());
-        
+          (myth.content && myth.content.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesFilters = filters.length === 0 || 
           filters.some(filter => 
-            myth.origin.includes(filter) || 
-            myth.period.includes(filter)
+            (myth.region && myth.region.includes(filter)) || 
+            (myth.era && myth.era.includes(filter))
           );
-        
         return matchesSearch && matchesFilters;
       });
     } else {
-      return mockMedia.filter(media => {
+      return media.filter(mediaItem => {
         const matchesSearch = searchQuery === '' || 
-          media.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          media.description.toLowerCase().includes(searchQuery.toLowerCase());
-        
+          mediaItem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (mediaItem.description && mediaItem.description.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesFilters = filters.length === 0 || 
           filters.some(filter => {
             const mediaTypeMap: Record<string, string> = {
@@ -57,11 +62,9 @@ const ExplorePage: React.FC = () => {
               '映画': 'film',
               'アート': 'art'
             };
-            
-            return media.type === mediaTypeMap[filter] || 
-                   media.tags.some(tag => tag.includes(filter));
+            return mediaItem.type === mediaTypeMap[filter] || 
+                   (mediaItem.tags && mediaItem.tags.some(tag => tag.includes(filter)));
           });
-        
         return matchesSearch && matchesFilters;
       });
     }
@@ -69,15 +72,83 @@ const ExplorePage: React.FC = () => {
 
   const filteredContent = getFilteredContent();
 
+  const createMockData = async () => {
+    if (!isAuthenticated || !user) return;
+    // 神話データ
+    const mockMythology: Omit<Mythology, 'id'>[] = [
+      {
+        title: '玉藻前伝説',
+        content: '平安時代の伝説的な妖狐「玉藻前」にまつわる物語。',
+        region: '日本',
+        era: '平安時代',
+        images: [],
+        references: [],
+        tags: ['妖狐', '伝説'],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      {
+        title: '白面金毛九尾の狐',
+        content: '中国神話に登場する九尾の狐。',
+        region: '中国',
+        era: '古代',
+        images: [],
+        references: [],
+        tags: ['九尾', '中国神話'],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+    ];
+    // メディアデータ
+    const mockMedia = [
+      {
+        title: 'けものフレンズ',
+        description: '動物を擬人化した人気アニメ。',
+        type: 'anime',
+        tags: ['アニメ', '動物'],
+        images: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      {
+        title: '妖狐×僕SS',
+        description: '妖狐をテーマにした漫画作品。',
+        type: 'manga',
+        tags: ['漫画', '妖狐'],
+        images: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+    ];
+    for (const myth of mockMythology) {
+      await addDoc(collection(db, 'mythology'), myth);
+    }
+    for (const media of mockMedia) {
+      await addDoc(collection(db, 'media'), media);
+    }
+    window.location.reload();
+  };
+
   return (
     <div className="pt-24 pb-16 bg-cream min-h-screen">
       <div className="container-custom">
-        <div className="mb-8">
-          <h1 className="text-3xl font-serif font-bold text-brown-800 mb-4">狐の世界を探索</h1>
-          <p className="text-brown-600 max-w-3xl">
-            狐にまつわる神話・伝承からアニメ、漫画、ゲームなどのサブカルチャーまで、
-            様々な狐の情報を探索してみましょう。
-          </p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-brown-800 mb-4">狐の世界を探索</h1>
+            <p className="text-brown-600 max-w-3xl">
+              狐にまつわる神話・伝承からアニメ、漫画、ゲームなどのサブカルチャーまで、
+              様々な狐の情報を探索してみましょう。
+            </p>
+          </div>
+          {process.env.NODE_ENV === 'development' && isAuthenticated && (
+            <button
+              onClick={createMockData}
+              className="btn btn-outline flex items-center gap-2"
+            >
+              <Database size={20} />
+              モックデータ作成
+            </button>
+          )}
         </div>
 
         {/* Search and Filters */}
