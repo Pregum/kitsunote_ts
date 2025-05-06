@@ -46,6 +46,7 @@ export interface FoxLocation {
 
 export interface FoxMythology {
   id: string;
+  userId: string;
   title: string;
   origin: string;
   period: string;
@@ -57,6 +58,7 @@ export interface FoxMythology {
 
 export interface FoxMedia {
   id: string;
+  userId: string;
   title: string;
   type: 'anime' | 'manga' | 'game' | 'book' | 'film' | 'art';
   creator: string;
