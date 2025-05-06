@@ -3,7 +3,7 @@ import { Search, Filter, X, Database } from 'lucide-react';
 import MythologyCard from '../components/ui/MythologyCard';
 import MediaCard from '../components/ui/MediaCard';
 import { useMythology, useMedia } from '../hooks/useFirestore';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Mythology } from '../types/Mythology';
@@ -86,6 +86,7 @@ const ExplorePage: React.FC = () => {
         tags: ['妖狐', '伝説'],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        userId: user.id,
       },
       {
         title: '白面金毛九尾の狐',
@@ -97,6 +98,7 @@ const ExplorePage: React.FC = () => {
         tags: ['九尾', '中国神話'],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        userId: user.id,
       }
     ];
     // メディアデータ
@@ -126,6 +128,16 @@ const ExplorePage: React.FC = () => {
     for (const media of mockMedia) {
       await addDoc(collection(db, 'media'), media);
     }
+    window.location.reload();
+  };
+
+  const handleDeleteMythology = async (id: string) => {
+    await deleteDoc(doc(db, 'mythology', id));
+    window.location.reload();
+  };
+
+  const handleDeleteMedia = async (id: string) => {
+    await deleteDoc(doc(db, 'media', id));
     window.location.reload();
   };
 
@@ -263,10 +275,30 @@ const ExplorePage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeTab === 'mythology'
               ? filteredContent.map(myth => (
-                  <MythologyCard key={myth.id} mythology={myth} />
+                  <div key={myth.id} className="relative">
+                    <MythologyCard mythology={myth} />
+                    {user && myth.userId === user.id && (
+                      <button
+                        className="absolute top-2 right-2 btn btn-xs btn-danger"
+                        onClick={() => handleDeleteMythology(myth.id)}
+                      >
+                        削除
+                      </button>
+                    )}
+                  </div>
                 ))
               : filteredContent.map(media => (
-                  <MediaCard key={media.id} media={media} />
+                  <div key={media.id} className="relative">
+                    <MediaCard media={media} />
+                    {user && media.userId === user.id && (
+                      <button
+                        className="absolute top-2 right-2 btn btn-xs btn-danger"
+                        onClick={() => handleDeleteMedia(media.id)}
+                      >
+                        削除
+                      </button>
+                    )}
+                  </div>
                 ))
             }
           </div>
