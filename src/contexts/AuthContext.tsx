@@ -1,70 +1,74 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { AuthContextType, User } from '../types';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { app, db } from '../firebase';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  serverTimestamp,
+  Timestamp 
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import { User } from '../types/firestore';
 
-const auth = getAuth(app);
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, displayName: string) => Promise<void>;
+  logout: () => Promise<void>;
+  updateUserProfile: (data: Partial<User>) => Promise<void>;
+}
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  isLoading: true,
-  isAuthenticated: false,
-  login: async () => {},
-  signup: async () => {},
-  logout: () => {}
-});
-
-export const useAuth = () => useContext(AuthContext);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Firestoreからユーザー情報を取得
-  const fetchUserData = async (uid: string) => {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      return userDoc.data() as User;
-    }
-    return null;
-  };
-
-  // Firestoreにユーザー情報を保存
-  const saveUserData = async (uid: string, userData: Partial<User>) => {
-    await setDoc(doc(db, 'users', uid), {
-      ...userData,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-  };
+  const [error, setError] = useState<string | null>(null);
+  const auth = getAuth();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Firestoreからユーザー情報を取得
-        let userData = await fetchUserData(firebaseUser.uid);
-        
-        if (!userData) {
-          // 新規ユーザーの場合、初期データを作成
-          userData = {
-            id: firebaseUser.uid,
-            username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user',
-            displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user',
-            email: firebaseUser.email || '',
-            avatar: firebaseUser.photoURL || 'https://images.pexels.com/photos/1074882/pexels-photo-1074882.jpeg?auto=compress&cs=tinysrgb&w=600',
-            bio: '',
-            joinDate: new Date(firebaseUser.metadata.creationTime || Date.now()),
-            isPremium: false,
-            savedPosts: [],
-            following: [],
-            followers: [],
-            createdAt: serverTimestamp()
-          };
-          // Firestoreに保存
-          await saveUserData(firebaseUser.uid, userData);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          let userData: User;
+
+          if (userDoc.exists()) {
+            userData = userDoc.data() as User;
+          } else {
+            userData = {
+              id: firebaseUser.uid,
+              username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user',
+              displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user',
+              email: firebaseUser.email || '',
+              avatar: firebaseUser.photoURL || 'https://images.pexels.com/photos/1074882/pexels-photo-1074882.jpeg?auto=compress&cs=tinysrgb&w=600',
+              bio: '',
+              joinDate: new Date(firebaseUser.metadata.creationTime || Date.now()),
+              isPremium: false,
+              savedPosts: [],
+              following: [],
+              followers: [],
+              createdAt: serverTimestamp() as Timestamp
+            };
+
+            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+          }
+
+          setUser(userData);
+        } catch (err) {
+          console.error('Error fetching user data:', err);
+          setError('ユーザーデータの取得に失敗しました');
         }
-        
-        setUser(userData);
       } else {
         setUser(null);
       }
@@ -72,64 +76,101 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth]);
 
   const login = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
+      setError(null);
       await signInWithEmailAndPassword(auth, email, password);
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('ログインに失敗しました');
+      throw err;
     }
   };
 
-  const signup = async (email: string, password: string, username: string) => {
+  const signup = async (email: string, password: string, displayName: string) => {
     try {
-      setIsLoading(true);
+      setError(null);
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(firebaseUser, { displayName: username });
       
-      // 新規ユーザーの初期データを作成
+      await updateProfile(firebaseUser, { displayName });
+      
       const userData: User = {
         id: firebaseUser.uid,
-        username,
-        displayName: username,
-        email,
-        avatar: 'https://images.pexels.com/photos/1074882/pexels-photo-1074882.jpeg?auto=compress&cs=tinysrgb&w=600',
+        username: displayName,
+        displayName,
+        email: firebaseUser.email || '',
+        avatar: firebaseUser.photoURL || 'https://images.pexels.com/photos/1074882/pexels-photo-1074882.jpeg?auto=compress&cs=tinysrgb&w=600',
         bio: '',
-        joinDate: new Date(),
+        joinDate: new Date(firebaseUser.metadata.creationTime || Date.now()),
         isPremium: false,
         savedPosts: [],
         following: [],
         followers: [],
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp() as Timestamp
       };
-      
-      // Firestoreに保存
-      await saveUserData(firebaseUser.uid, userData);
-    } finally {
-      setIsLoading(false);
+
+      await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+    } catch (err) {
+      console.error('Signup error:', err);
+      setError('アカウント作成に失敗しました');
+      throw err;
     }
   };
 
   const logout = async () => {
     try {
+      setError(null);
       await signOut(auth);
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
+    } catch (err) {
+      console.error('Logout error:', err);
+      setError('ログアウトに失敗しました');
+      throw err;
     }
   };
 
+  const updateUserProfile = async (data: Partial<User>) => {
+    if (!user) return;
+
+    try {
+      setError(null);
+      const userRef = doc(db, 'users', user.id);
+      await setDoc(userRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      setUser(prev => prev ? { ...prev, ...data } : null);
+    } catch (err) {
+      console.error('Profile update error:', err);
+      setError('プロフィールの更新に失敗しました');
+      throw err;
+    }
+  };
+
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    error,
+    login,
+    signup,
+    logout,
+    updateUserProfile
+  };
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      isAuthenticated: !!user,
-      login,
-      signup,
-      logout
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

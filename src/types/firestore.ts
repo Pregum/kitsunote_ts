@@ -1,5 +1,21 @@
 import { Timestamp } from 'firebase/firestore';
 
+export interface User {
+  id: string;
+  username: string;
+  displayName: string;
+  email: string;
+  avatar: string;
+  bio: string;
+  joinDate: Date;
+  isPremium: boolean;
+  savedPosts: string[];
+  following: string[];
+  followers: string[];
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
 export interface Post {
   id: string;
   title: string;
