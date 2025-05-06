@@ -176,7 +176,7 @@ const CommunityPage: React.FC = () => {
   };
 
   return (
-    <div className="container-custom py-8">
+    <div className="container-custom pt-24 pb-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-serif font-bold text-brown-800">コミュニティ</h1>
         <div className="flex gap-4">
