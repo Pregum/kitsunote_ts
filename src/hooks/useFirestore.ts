@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Post, Location, Mythology } from '../types/firestore';
 
@@ -12,7 +12,7 @@ export const useRecentPosts = (limit: number = 4) => {
     const fetchPosts = async () => {
       try {
         const postsRef = collection(db, 'posts');
-        const q = query(postsRef, orderBy('createdAt', 'desc'), limit(limit));
+        const q = query(postsRef, orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         
         const fetchedPosts = querySnapshot.docs.map(doc => ({
@@ -43,7 +43,7 @@ export const useFeaturedLocations = (limit: number = 3) => {
     const fetchLocations = async () => {
       try {
         const locationsRef = collection(db, 'locations');
-        const q = query(locationsRef, limit(limit));
+        const q = query(locationsRef, orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         
         const fetchedLocations = querySnapshot.docs.map(doc => ({
@@ -74,7 +74,7 @@ export const useMythology = (limit: number = 3) => {
     const fetchMythology = async () => {
       try {
         const mythologyRef = collection(db, 'mythology');
-        const q = query(mythologyRef, limit(limit));
+        const q = query(mythologyRef, orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         
         const fetchedMythology = querySnapshot.docs.map(doc => ({
