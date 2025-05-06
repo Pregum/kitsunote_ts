@@ -173,25 +173,25 @@ const CommunityPage: React.FC = () => {
     setNewPostTags(newPostTags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !user) return;
+  // const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const files = e.target.files;
+  //   if (!files || !user) return;
 
-    const uploadPromises = Array.from(files).map(async (file) => {
-      const storageRef = ref(storage, `post_images/${user.id}_${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      return url;
-    });
+  //   const uploadPromises = Array.from(files).map(async (file) => {
+  //     const storageRef = ref(storage, `post_images/${user.id}_${Date.now()}_${file.name}`);
+  //     await uploadBytes(storageRef, file);
+  //     const url = await getDownloadURL(storageRef);
+  //     return url;
+  //   });
 
-    try {
-      const urls = await Promise.all(uploadPromises);
-      setNewPostImages(prev => [...prev, ...urls]);
-    } catch (err) {
-      console.error('画像アップロードに失敗しました', err);
-      // 必要ならエラー表示
-    }
-  };
+  //   try {
+  //     const urls = await Promise.all(uploadPromises);
+  //     setNewPostImages(prev => [...prev, ...urls]);
+  //   } catch (err) {
+  //     console.error('画像アップロードに失敗しました', err);
+  //     // 必要ならエラー表示
+  //   }
+  // };
 
   return (
     <div className="container-custom pt-24 pb-8">
@@ -271,7 +271,7 @@ const CommunityPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mb-4">
+            {/* <div className="mb-4">
               <label className="btn btn-outline flex items-center gap-2 cursor-pointer">
                 <ImageIcon size={20} />
                 画像を追加
@@ -283,7 +283,7 @@ const CommunityPage: React.FC = () => {
                   className="hidden"
                 />
               </label>
-            </div>
+            </div> */}
 
             <div className="flex justify-end gap-4">
               <button
@@ -326,9 +326,11 @@ const CommunityPage: React.FC = () => {
                     {post.authorName}
                   </Link>
                   <p className="text-sm text-gray-500">
-                    {post.createdAt instanceof Date
-                      ? post.createdAt.toLocaleDateString('ja-JP')
-                      : new Date(post.createdAt.seconds * 1000).toLocaleDateString('ja-JP')}
+                    {post.createdAt && typeof post.createdAt === 'object' && 'toDate' in post.createdAt
+                      ? post.createdAt.toDate().toLocaleDateString('ja-JP')
+                      : post.createdAt instanceof Date
+                        ? post.createdAt.toLocaleDateString('ja-JP')
+                        : ''}
                   </p>
                 </div>
               </div>

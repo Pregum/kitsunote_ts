@@ -11,25 +11,25 @@ interface FoxCardProps {
 
 const FoxCard: React.FC<FoxCardProps> = ({ post, showActions = true }) => {
   const { isAuthenticated } = useAuth();
-  const formattedDate = new Date(post.createdAt).toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  // const formattedDate = post.createdAt && typeof post.createdAt === 'object' && 'toDate' in post.createdAt
+  //   ? post.createdAt.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })
+  //   : post.createdAt instanceof Date
+  //     ? post.createdAt.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })
+  //     : '';
 
   return (
     <div className="card hover:translate-y-[-5px]">
       {/* Card Header */}
       <div className="p-4 flex items-center justify-between">
-        <Link to={`/profile/${post.username}`} className="flex items-center gap-3">
+        <Link to={`/profile/${post.avatar}`} className="flex items-center gap-3">
           <img 
-            src={post.userAvatar} 
-            alt={post.username}
+            src={post.avatar} 
+            alt={post.displayName}
             className="w-10 h-10 rounded-full object-cover border-2 border-orange-200"
           />
           <div>
-            <h3 className="font-medium text-brown-800">{post.username}</h3>
-            <p className="text-xs text-brown-500">{formattedDate}</p>
+            <h3 className="font-medium text-brown-800">{post.displayName}</h3>
+            <p className="text-xs text-brown-500">{post.username}</p>
           </div>
         </Link>
 
